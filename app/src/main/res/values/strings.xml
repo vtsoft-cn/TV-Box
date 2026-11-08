@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">TV Box</string>
+    <string name="channels">频道列表</string>
+    <string name="channel_count">%d 个频道</string>
+    <string name="current_channel">正在播放</string>
+    <string name="channel_hint">↑ ↓ 浏览 · 确认键切台</string>
+    <string name="live_label">直播 · LIVE</string>
+    <string name="select_channel">请选择频道</string>
+    <string name="fullscreen">全屏</string>
+    <string name="fullscreen_hint">按返回键退出全屏</string>
+    <string name="playback_connecting">正在连接直播…</string>
+    <string name="playback_retrying">连接中断，正在重试…</string>
+    <string name="playback_unavailable">播放失败，请重选频道或切台</string>
+    <string name="player_unavailable">播放器初始化失败</string>
+</resources>

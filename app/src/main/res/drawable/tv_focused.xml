@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#666678"
+        android:endColor="#393946" />
+    <stroke android:width="2dp" android:color="@color/tv_focus_ring" />
+    <corners android:radius="14dp" />
+</shape>

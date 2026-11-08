@@ -1,0 +1,15 @@
+# Gradle and Android build output
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# Android Studio and macOS
+.idea/
+*.iml
+.DS_Store
+
+# Local signing keys
+*.jks
+*.keystore
+keystore.properties

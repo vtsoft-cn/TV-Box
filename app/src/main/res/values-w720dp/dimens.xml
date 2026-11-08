@@ -1,0 +1,4 @@
+<resources>
+    <dimen name="channel_panel_width">248dp</dimen>
+    <dimen name="ambient_glow_radius">480dp</dimen>
+</resources>

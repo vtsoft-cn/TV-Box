@@ -1,0 +1,24 @@
+<resources>
+    <dimen name="live_padding">16dp</dimen>
+    <dimen name="channel_panel_width">196dp</dimen>
+    <dimen name="channel_spacing">6dp</dimen>
+    <dimen name="channel_focus_inset">8dp</dimen>
+    <dimen name="ambient_glow_radius">330dp</dimen>
+    <dimen name="preview_inset">8dp</dimen>
+    <color name="tv_background">#09090D</color>
+    <color name="tv_text">#F5F5FA</color>
+    <color name="tv_muted">#B9BAC8</color>
+    <color name="tv_accent">#C1C9FF</color>
+    <color name="tv_focus_ring">#E7E8F1</color>
+
+    <style name="Theme.TVBox" parent="Theme.Leanback">
+        <item name="android:windowBackground">@color/tv_background</item>
+        <item name="android:windowOverscan">false</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:statusBarColor">@color/tv_background</item>
+        <item name="android:navigationBarColor">@color/tv_background</item>
+        <item name="android:colorAccent">@color/tv_accent</item>
+    </style>
+
+</resources>

@@ -10,6 +10,7 @@
     <color name="tv_muted">#B9BAC8</color>
     <color name="tv_accent">#C1C9FF</color>
     <color name="tv_focus_ring">#E7E8F1</color>
+    <color name="ic_launcher_background">#141C30</color>
 
     <style name="Theme.TVBox" parent="Theme.Leanback">
         <item name="android:windowBackground">@color/tv_background</item>

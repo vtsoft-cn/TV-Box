@@ -1,6 +1,12 @@
 # TV Box
 
-TV Box 是一个面向 Android TV、电视盒子和横屏手机的 Kotlin 直播应用。应用内置 64 个频道，可用遥控器或触屏切台，并记住上次播放的频道。
+<img src="docs/images/tvbox-logo.svg" alt="TV Box 应用图标" width="96" height="96">
+
+TV Box 是一款用 Kotlin 开发的电视直播应用，支持 Android TV、电视盒子和横屏手机。应用内置 64 个频道，支持遥控器和触屏切台，可全屏观看，并会记住上次播放的频道。
+
+## 播放界面
+
+![TV Box 播放界面，左侧为频道列表，右侧正在播放 CCTV-1 综合](docs/images/playback.webp)
 
 ## 使用
 
@@ -53,3 +59,7 @@ adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 - [YspProtocol.kt](app/src/main/java/com/example/tvbox/YspProtocol.kt)负责 JCE 和 BK 取源请求。
 - [YspLiveSource.kt](app/src/main/java/com/example/tvbox/YspLiveSource.kt)负责直播清单刷新和备用 CDN 检查。
 - [MainActivity.kt](app/src/main/java/com/example/tvbox/MainActivity.kt)负责播放器选择、重试和全屏。
+
+## 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE)。

@@ -6,7 +6,7 @@ TV Box 是一款用 Kotlin 开发的电视直播应用，支持 Android TV、电
 
 ## 播放界面
 
-![TV Box 播放界面，左侧为频道列表，右侧正在播放 CCTV-1 综合](docs/images/playback.webp)
+![TV Box 播放界面，左侧为频道列表，右侧正在播放 CCTV-1 综合](docs/images/playback.png)
 
 ## 使用
 

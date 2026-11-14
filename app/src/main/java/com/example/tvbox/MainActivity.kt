@@ -12,7 +12,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -35,6 +34,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var playbackStatus: TextView
     private lateinit var playingTitle: TextView
     private lateinit var fullscreenButton: View
+    private lateinit var fullscreenHint: View
     private lateinit var insetsController: WindowInsetsControllerCompat
 
     private var started = false
@@ -45,8 +45,8 @@ class MainActivity : FragmentActivity() {
     private var useVlcForHls = false
     private var sourceRefreshAttempted = false
     private var playingSince = 0L
-    private var playbackSession = 0
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val hideFullscreenHint = Runnable { fullscreenHint.visibility = View.GONE }
 
     private val fullscreenBack = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = setFullscreen(false)
@@ -61,6 +61,7 @@ class MainActivity : FragmentActivity() {
         playbackStatus = findViewById(R.id.playback_status)
         playingTitle = findViewById(R.id.playing_title)
         fullscreenButton = findViewById(R.id.fullscreen_button)
+        fullscreenHint = findViewById(R.id.fullscreen_hint)
         insetsController = WindowInsetsControllerCompat(window, videoContainer).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
@@ -97,16 +98,7 @@ class MainActivity : FragmentActivity() {
 
         try {
             libVLC = LibVLC(this, options)
-            mediaPlayer = MediaPlayer(libVLC).apply {
-                setEventListener { event ->
-                    if (!started || hlsPlayback != null) return@setEventListener
-                    when (event.type) {
-                        MediaPlayer.Event.Playing -> markPlaying("VLC")
-                        MediaPlayer.Event.EncounteredError -> retryPlayback(decoderError = true)
-                        MediaPlayer.Event.EndReached -> retryPlayback(decoderError = false)
-                    }
-                }
-            }
+            mediaPlayer = MediaPlayer(libVLC)
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to initialize LibVLC", e)
             showPlaybackStatus(R.string.player_unavailable)
@@ -133,7 +125,6 @@ class MainActivity : FragmentActivity() {
             (hlsPlayback?.isPlaying == true || mediaPlayer?.isPlaying == true)
         ) return
         mainHandler.removeCallbacksAndMessages(null)
-        playbackSession++
         retryCount = 0
         softwareDecoder = false
         useVlcForHls = false
@@ -159,6 +150,9 @@ class MainActivity : FragmentActivity() {
         if (!started) return
         playingSince = 0L
         showPlaybackStatus(status)
+        // 重新创建视频输出，避免新频道沿用旧频道的解码缓冲区和画面比例。
+        releaseHlsPlayback()
+        releaseVlcOutput()
         Log.d("MainActivity", "Playing: ${channel.url}")
 
         val uri = try {
@@ -175,24 +169,22 @@ class MainActivity : FragmentActivity() {
                 return
             } catch (e: Exception) {
                 Log.w("MainActivity", "Could not start Media3, falling back to VLC", e)
+                releaseHlsPlayback()
                 useVlcForHls = true
             }
         }
 
-        releaseHlsPlayback()
         if (mediaPlayer == null) initializeVlc()
         val player = mediaPlayer ?: run {
             showPlaybackStatus(R.string.player_unavailable)
             return
         }
-        val layout = videoLayout ?: VLCVideoLayout(this).also {
+        val layout = VLCVideoLayout(this).also {
             videoLayout = it
             videoContainer.addView(it, 0)
         }
-        layout.visibility = View.VISIBLE
 
         try {
-            if (player.hasMedia()) player.stop()
             val media = Media(libVLC, uri)
             try {
                 // 设置在硬解选项之前，避免 LibVLC 将缓存改为 1500 毫秒。
@@ -203,8 +195,14 @@ class MainActivity : FragmentActivity() {
                 media.release()
             }
 
-            if (!player.vlcVout.areViewsAttached()) {
-                player.attachViews(layout, null, true, false)
+            player.attachViews(layout, null, true, false)
+            player.setEventListener { event ->
+                if (!started || videoLayout !== layout) return@setEventListener
+                when (event.type) {
+                    MediaPlayer.Event.Playing -> markPlaying("VLC")
+                    MediaPlayer.Event.EncounteredError -> retryPlayback(decoderError = true)
+                    MediaPlayer.Event.EndReached -> retryPlayback(decoderError = false)
+                }
             }
             player.play()
         } catch (e: Exception) {
@@ -214,33 +212,28 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun startHlsPlayback(uri: Uri) {
-        val playback = hlsPlayback ?: run {
-            mediaPlayer?.stop()
-            mediaPlayer?.detachViews()
-            videoLayout?.visibility = View.GONE
-            HlsPlayback(this, MainApplication.channelRepository.httpClient, object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    if (started && isPlaying) markPlaying("Media3")
-                }
+        val playback = HlsPlayback(this, MainApplication.channelRepository.httpClient, object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (started && isPlaying) markPlaying("Media3")
+            }
 
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (started && playbackState == Player.STATE_ENDED) retryPlayback(decoderError = false)
-                }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (started && playbackState == Player.STATE_ENDED) retryPlayback(decoderError = false)
+            }
 
-                override fun onPlayerError(error: PlaybackException) {
-                    Log.w("MainActivity", "Media3 playback failed, falling back to VLC", error)
-                    val session = playbackSession
-                    mainHandler.post {
-                        if (started && session == playbackSession && hlsPlayback != null) {
-                            useVlcForHls = true
-                            startPlayback(R.string.playback_retrying)
-                        }
+            override fun onPlayerError(error: PlaybackException) {
+                Log.w("MainActivity", "Media3 playback failed, falling back to VLC", error)
+                val playback = hlsPlayback
+                mainHandler.post {
+                    if (started && playback != null && hlsPlayback === playback) {
+                        useVlcForHls = true
+                        startPlayback(R.string.playback_retrying)
                     }
                 }
-            }).also {
-                hlsPlayback = it
-                videoContainer.addView(it.view, 0)
             }
+        }).also {
+            hlsPlayback = it
+            videoContainer.addView(it.view, 0)
         }
         playback.play(uri)
     }
@@ -256,6 +249,17 @@ class MainActivity : FragmentActivity() {
         hlsPlayback = null
         playback.release()
         videoContainer.removeView(playback.view)
+    }
+
+    private fun releaseVlcOutput() {
+        val layout = videoLayout ?: return
+        videoLayout = null
+        mediaPlayer?.apply {
+            setEventListener(null)
+            stop()
+            detachViews()
+        }
+        videoContainer.removeView(layout)
     }
 
     private fun retryPlayback(decoderError: Boolean) {
@@ -302,11 +306,13 @@ class MainActivity : FragmentActivity() {
         videoContainer.setBackgroundResource(if (enabled) android.R.color.black else R.drawable.preview_frame)
         videoContainer.setPadding(inset, inset, inset, inset)
         videoContainer.isFocusable = enabled
+        fullscreenHint.removeCallbacks(hideFullscreenHint)
+        fullscreenHint.visibility = if (enabled) View.VISIBLE else View.GONE
 
         if (enabled) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             videoContainer.requestFocus()
-            Toast.makeText(this, R.string.fullscreen_hint, Toast.LENGTH_SHORT).show()
+            fullscreenHint.postDelayed(hideFullscreenHint, 2500)
         } else {
             insetsController.show(WindowInsetsCompat.Type.systemBars())
             fullscreenButton.requestFocus()
@@ -331,18 +337,18 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         started = false
-        playbackSession++
         mainHandler.removeCallbacksAndMessages(null)
+        fullscreenHint.removeCallbacks(hideFullscreenHint)
+        hideFullscreenHint.run()
         MainApplication.channelRepository.stopLive()
         releaseHlsPlayback()
-        mediaPlayer?.stop()
-        mediaPlayer?.detachViews()
+        releaseVlcOutput()
         super.onStop()
     }
 
     override fun onDestroy() {
         releaseHlsPlayback()
-        mediaPlayer?.setEventListener(null)
+        releaseVlcOutput()
         mediaPlayer?.release()
         libVLC?.release()
         super.onDestroy()

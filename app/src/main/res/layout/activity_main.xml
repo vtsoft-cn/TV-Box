@@ -148,6 +148,35 @@
                 android:text="@string/select_channel"
                 android:textColor="@color/tv_text"
                 android:textSize="16sp" />
+
+            <LinearLayout
+                android:id="@+id/fullscreen_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="24dp"
+                android:background="@drawable/preview_frame"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="16dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_launcher_foreground" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:accessibilityLiveRegion="polite"
+                    android:text="@string/fullscreen_hint"
+                    android:textColor="@color/tv_text"
+                    android:textSize="14sp"
+                    android:translationY="-1dp" />
+            </LinearLayout>
         </FrameLayout>
     </LinearLayout>
 </RelativeLayout>

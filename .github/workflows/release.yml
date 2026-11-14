@@ -1,0 +1,139 @@
+name: Android release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'vtsoft-cn/TV-Box' && (github.event_name == 'push' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version_code: ${{ steps.package.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release ref
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            git merge-base --is-ancestor HEAD refs/remotes/origin/main
+          fi
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build release APKs
+        shell: bash
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;36.0.0"
+          ./gradlew --no-daemon :app:assembleRelease
+      - name: Sign and verify release APKs
+        id: package
+        shell: bash
+        env:
+          TVBOX_KEYSTORE_BASE64: ${{ secrets.TVBOX_KEYSTORE_BASE64 }}
+          TVBOX_KEYSTORE_PASSWORD: ${{ secrets.TVBOX_KEYSTORE_PASSWORD }}
+        run: |
+          set -u
+          apk_dir=app/build/outputs/apk/release
+          metadata="$apk_dir/output-metadata.json"
+          version_code=$(jq -er '.elements | map(.versionCode) | unique | select(length == 1) | .[0] | select(type == "number" and . > 0 and floor == .)' "$metadata")
+          version_name=$(jq -er '.elements | map(.versionName) | unique | select(length == 1) | .[0]' "$metadata")
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_NAME" != "v$version_name" ]]; then
+            echo "::error::The tag must match versionName (v$version_name)."
+            exit 1
+          fi
+          if [[ -z "$TVBOX_KEYSTORE_BASE64" || -z "$TVBOX_KEYSTORE_PASSWORD" ]]; then
+            echo "::error::Configure both TV Box signing secrets before running this workflow."
+            exit 1
+          fi
+          umask 077
+          signing_dir=$(mktemp -d)
+          trap 'rm -f "$signing_dir/release.p12" "$signing_dir/password"; rmdir "$signing_dir"' EXIT
+          printf '%s' "$TVBOX_KEYSTORE_BASE64" | base64 --decode > "$signing_dir/release.p12"
+          printf '%s\n' "$TVBOX_KEYSTORE_PASSWORD" > "$signing_dir/password"
+          unset TVBOX_KEYSTORE_BASE64 TVBOX_KEYSTORE_PASSWORD
+
+          signer="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          expected_fingerprint=a84e012d6bfa4e77a6ef26d660df134692149a65ba04aa2a49d8f91657adc2fc
+          mkdir -p signed-apks
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            filename=$(jq -er --arg abi "$abi" '
+              [.elements[] | select(any(.filters[]; .filterType == "ABI" and .value == $abi))]
+              | select(length == 1) | .[0].outputFile
+            ' "$metadata")
+            signed="signed-apks/tvbox-$version_code-$abi.apk"
+            "$signer" sign --ks "$signing_dir/release.p12" --ks-type PKCS12 \
+              --ks-key-alias tvbox-release --ks-pass "file:$signing_dir/password" \
+              --v4-signing-enabled false --out "$signed" "$apk_dir/$filename"
+            verification=$("$signer" verify --min-sdk-version 21 --print-certs "$signed")
+            if ! grep -Fxq "Signer #1 certificate SHA-256 digest: $expected_fingerprint" <<< "$verification"; then
+              echo "::error::The signing certificate does not match TV Box 1.0.0."
+              exit 1
+            fi
+            printf 'Verified %s\n' "$signed"
+          done
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+      - name: Pass signed APKs to the publish job
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: signed-apks
+          path: signed-apks/*.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency: tvbox-release-publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: signed-apks
+          path: signed-apks
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+        run: |
+          set -u
+          tag="$GITHUB_REF_NAME"
+          latest_code=$(gh api "repos/$GH_REPO/releases/latest" | jq -er '
+            [.assets[] | select(.state == "uploaded") |
+              .name | capture("^tvbox-(?<code>[0-9]+)-(arm64-v8a|armeabi-v7a|x86_64|x86)\\.apk$").code |
+              tonumber] | max
+          ')
+          if (( VERSION_CODE <= latest_code )); then
+            echo "::error::versionCode must exceed the latest release ($latest_code)."
+            exit 1
+          fi
+
+          files=(signed-apks/tvbox-"$VERSION_CODE"-{arm64-v8a,armeabi-v7a,x86,x86_64}.apk)
+          for file in "${files[@]}"; do test -s "$file"; done
+          if gh release view "$tag" --json isDraft > release-state.json; then
+            if ! jq -e '.isDraft' release-state.json >/dev/null; then
+              echo "::error::The release for $tag is already published."
+              exit 1
+            fi
+          else
+            gh release create "$tag" --verify-tag --draft --title "TV Box ${tag#v}" --generate-notes
+          fi
+          gh release upload "$tag" "${files[@]}" --clobber
+          gh release edit "$tag" --draft=false --latest

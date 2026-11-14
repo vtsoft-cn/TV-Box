@@ -57,7 +57,18 @@ adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 从 1.0.0 起，选择播放页右上角的「检查更新」，即可从 GitHub 下载适配本机架构的新版 APK，并在系统安装界面确认更新。遥控器可从频道列表连按两次右键进入该入口。首次安装需要手动操作。Android 8.0 及以上可能会要求先允许 TV Box 安装应用。
 
-发布新版时，在 `app/build.gradle` 递增 `versionCode` 并更新 `versionName`。用同一发布密钥签名各架构的 APK，将它们作为附件上传到 [GitHub Releases](https://github.com/vtsoft-cn/TV-Box/releases) 的正式发布。附件命名为 `tvbox-<versionCode>-<ABI>.apk`。例如，1.0.0 的 ARM64 包命名为 `tvbox-1-arm64-v8a.apk`。同一次发布的 APK 使用相同版本号。应用使用 GitHub 提供的 SHA-256 校验值，并检查 APK 的包名、版本号及签名。此前安装了不同签名的 APK（例如调试包）的设备，需要卸载旧版后再安装正式版。
+应用使用 GitHub 提供的 SHA-256 校验值，并检查 APK 的包名、版本号及签名。此前安装了不同签名的 APK（例如调试包）的设备，需要卸载旧版后再安装正式版。
+
+## 发布新版
+
+在 `app/build.gradle` 递增 `versionCode` 并更新 `versionName`，将提交推到 `main`，再给该提交打上与版本名对应的标签并推送。例如发布 1.0.1 时，使用 `versionCode 2` 和 `versionName "1.0.1"`。
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+GitHub Actions 使用 `TVBOX_KEYSTORE_BASE64` 和 `TVBOX_KEYSTORE_PASSWORD` 两个签名 Secret，构建并校验四种架构的签名 APK，上传到 [GitHub Releases](https://github.com/vtsoft-cn/TV-Box/releases)。附件按 `tvbox-<versionCode>-<ABI>.apk` 命名。从 Actions 页手动运行 `Android release` 可验证构建和签名，手动运行不会创建发行版。
 
 ## 代码入口
 

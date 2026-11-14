@@ -36,6 +36,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var fullscreenButton: View
     private lateinit var fullscreenHint: View
     private lateinit var insetsController: WindowInsetsControllerCompat
+    private lateinit var appUpdates: AppUpdates
 
     private var started = false
     private var initialFocusPending = true
@@ -68,6 +69,8 @@ class MainActivity : FragmentActivity() {
         onBackPressedDispatcher.addCallback(this, fullscreenBack)
 
         fullscreenButton.setOnClickListener { setFullscreen(true) }
+        appUpdates = AppUpdates(this)
+        findViewById<View>(R.id.check_update_button).setOnClickListener { appUpdates.check() }
         videoContainer.setOnClickListener { setFullscreen(!fullscreenBack.isEnabled) }
         videoContainer.isFocusable = false
         if (savedInstanceState == null) {
@@ -347,6 +350,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
+        appUpdates.close()
         releaseHlsPlayback()
         releaseVlcOutput()
         mediaPlayer?.release()

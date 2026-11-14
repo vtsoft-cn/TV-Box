@@ -53,6 +53,12 @@ adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 `./gradlew :app:assembleRelease` 会在 `app/build/outputs/apk/release/` 生成未签名的发布 APK。发布版启用代码和资源压缩，安装前需要用自己的密钥签名。
 
+## 在线更新
+
+从 1.0.0 起，选择播放页右上角的「检查更新」，即可从 GitHub 下载适配本机架构的新版 APK，并在系统安装界面确认更新。遥控器可从频道列表连按两次右键进入该入口。首次安装需要手动操作。Android 8.0 及以上可能会要求先允许 TV Box 安装应用。
+
+发布新版时，在 `app/build.gradle` 递增 `versionCode` 并更新 `versionName`。用同一发布密钥签名各架构的 APK，将它们作为附件上传到 [GitHub Releases](https://github.com/vtsoft-cn/TV-Box/releases) 的正式发布。附件命名为 `tvbox-<versionCode>-<ABI>.apk`。例如，1.0.0 的 ARM64 包命名为 `tvbox-1-arm64-v8a.apk`。同一次发布的 APK 使用相同版本号。应用使用 GitHub 提供的 SHA-256 校验值，并检查 APK 的包名、版本号及签名。此前安装了不同签名的 APK（例如调试包）的设备，需要卸载旧版后再安装正式版。
+
 ## 代码入口
 
 - [频道目录](app/src/main/res/raw/ysp_channels.tsv)包含频道名称、上游 ID 和请求清晰度。

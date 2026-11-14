@@ -120,8 +120,23 @@
                 android:background="@drawable/fullscreen_control"
                 android:contentDescription="@string/fullscreen"
                 android:nextFocusLeft="@id/browse_grid"
+                android:nextFocusRight="@+id/check_update_button"
                 android:scaleType="center"
                 android:src="@drawable/ic_fullscreen" />
+
+            <Button
+                android:id="@id/check_update_button"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/tv_focus"
+                android:minWidth="0dp"
+                android:nextFocusLeft="@id/fullscreen_button"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/update_check"
+                android:textColor="@color/tv_text"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <FrameLayout
@@ -166,7 +181,8 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_launcher_foreground" />
+                    android:padding="8dp"
+                    android:src="@drawable/ic_app_logo" />
 
                 <TextView
                     android:layout_width="wrap_content"

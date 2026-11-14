@@ -5,12 +5,11 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <!-- Keep the artwork inside the adaptive icon mask's safe area. -->
     <group
         android:pivotX="512"
         android:pivotY="512"
-        android:scaleX="0.52"
-        android:scaleY="0.52">
+        android:scaleX="0.90"
+        android:scaleY="0.90">
         <path
             android:fillColor="#A4B6DC"
             android:pathData="M879.308,862.484 C879.308,841.908,862.6,825.204,842.024,825.204 L181.976,825.204

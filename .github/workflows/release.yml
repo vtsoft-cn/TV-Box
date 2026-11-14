@@ -35,7 +35,10 @@ jobs:
       - name: Build release APKs
         shell: bash
         run: |
-          sdkmanager "platforms;android-34" "build-tools;36.0.0"
+          if [[ ! -f "$ANDROID_HOME/platforms/android-34/android.jar" ||
+                ! -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;36.0.0"
+          fi
           ./gradlew --no-daemon :app:assembleRelease
       - name: Sign and verify release APKs
         id: package
